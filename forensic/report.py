@@ -158,9 +158,9 @@ class PDFReportGenerator:
         self,
         evidence_data: Dict[str, Any],
         audio_properties: Dict[str, Any],
-        waveform_data: Tuple[np.ndarray, np.ndarray],
-        spectrogram_data: Tuple[np.ndarray, np.ndarray, np.ndarray],
         metadata_results: Optional[Dict[str, Any]] = None,
+        waveform_data: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        spectrogram_data: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
         tampering_results: Optional[Dict[str, Any]] = None,
         filename: Optional[str] = None,
         denoise_metrics: Optional[Dict[str, Any]] = None,
@@ -288,33 +288,36 @@ class PDFReportGenerator:
             story.append(Spacer(1, 20))
 
         # Waveform Image
-        story.append(Paragraph("WAVEFORM VISUALIZATION", self.heading_style))
-        times, signal = waveform_data
-        waveform_img_b64 = self._create_waveform_image(times, signal)
-        if waveform_img_b64 and MATPLOTLIB_AVAILABLE:
-            # Convert base64 to image for reportlab
-            import base64
-            from reportlab.platypus import Image
-            img_data = base64.b64decode(waveform_img_b64)
-            img_buf = io.BytesIO(img_data)
-            img = Image(img_buf, width=6*inch, height=1.5*inch)
-            story.append(img)
-        else:
-            story.append(Paragraph("Waveform visualization not available.", self.normal_style))
-        story.append(Spacer(1, 20))
+        if waveform_data is not None:
+            story.append(Paragraph("WAVEFORM VISUALIZATION", self.heading_style))
+            times, signal = waveform_data
+            waveform_img_b64 = self._create_waveform_image(times, signal)
+            if waveform_img_b64 and MATPLOTLIB_AVAILABLE:
+                import base64
+                from reportlab.platypus import Image
+                img_data = base64.b64decode(waveform_img_b64)
+                img_buf = io.BytesIO(img_data)
+                img = Image(img_buf, width=6*inch, height=1.5*inch)
+                story.append(img)
+            else:
+                story.append(Paragraph("Waveform visualization not available.", self.normal_style))
+            story.append(Spacer(1, 20))
 
         # Spectrogram Image
-        story.append(Paragraph("SPECTROGRAM VISUALIZATION", self.heading_style))
-        spectrogram, frequencies, times_spec = spectrogram_data
-        spectrogram_img_b64 = self._create_spectrogram_image(spectrogram, frequencies, times_spec)
-        if spectrogram_img_b64 and MATPLOTLIB_AVAILABLE:
-            img_data = base64.b64decode(spectrogram_img_b64)
-            img_buf = io.BytesIO(img_data)
-            img = Image(img_buf, width=6*inch, height=3*inch)
-            story.append(img)
-        else:
-            story.append(Paragraph("Spectrogram visualization not available.", self.normal_style))
-        story.append(Spacer(1, 20))
+        if spectrogram_data is not None:
+            story.append(Paragraph("SPECTROGRAM VISUALIZATION", self.heading_style))
+            spectrogram, frequencies, times_spec = spectrogram_data
+            spectrogram_img_b64 = self._create_spectrogram_image(spectrogram, frequencies, times_spec)
+            if spectrogram_img_b64 and MATPLOTLIB_AVAILABLE:
+                import base64
+                from reportlab.platypus import Image
+                img_data = base64.b64decode(spectrogram_img_b64)
+                img_buf = io.BytesIO(img_data)
+                img = Image(img_buf, width=6*inch, height=3*inch)
+                story.append(img)
+            else:
+                story.append(Paragraph("Spectrogram visualization not available.", self.normal_style))
+            story.append(Spacer(1, 20))
 
         # Tampering Analysis Results (only if tampering detection was executed)
         if tampering_results and tampering_results.get('num_windows', 0) > 0:

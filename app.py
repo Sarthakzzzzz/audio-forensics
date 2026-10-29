@@ -617,6 +617,8 @@ def display_analysis_results(
                         audio_properties=audio_properties,
                         waveform_data=(w_times_report, denoised_signal),
                         spectrogram_data=spectrogram_data,
+                        metadata_results={},
+                        tampering_results={},
                         denoise_metrics=denoise_metrics,
                         frequency_comparison=freq_comparison
                     )
