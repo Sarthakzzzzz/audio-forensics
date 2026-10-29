@@ -19,6 +19,7 @@ from forensic.waveform import load_audio_file, WaveformAnalyzer
 from forensic.spectrogram import create_spectrogram_analyzer, SpectrogramAnalyzer
 from forensic.denoise import create_denoiser, AudioDenoiser
 from forensic.frequency import create_frequency_analyzer, FrequencyAnalyzer
+from forensic.report import create_report_generator
 
 # Page configuration
 st.set_page_config(
@@ -595,6 +596,47 @@ def display_analysis_results(
     st.line_chart(waveform_df.set_index('Time (s)'), height=220)
     duration_val = w_times[-1] if len(w_times) > 0 else 0.0
     st.caption(f"Cleaned output waveform showing {len(denoised_signal):,} samples over {duration_val:.2f} seconds")
+
+    # =========================================================================
+    # PDF REPORT OPTION
+    # =========================================================================
+    st.markdown('<div class="section-header"><h2>📄 Export PDF Forensic & Audio Report</h2></div>', unsafe_allow_html=True)
+
+    rep_col1, rep_col2 = st.columns([2.5, 1.2])
+    with rep_col1:
+        st.write("Generate a printable PDF report documenting evidence verification hashes (SHA-256), audio technical properties, embedded waveform & spectrogram plots, noise reduction statistics, and before/after frequency comparison metrics.")
+
+    with rep_col2:
+        if st.button("📥 Generate PDF Report", type="primary", use_container_width=True):
+            with st.spinner("Compiling PDF report..."):
+                try:
+                    report_gen = create_report_generator()
+                    w_times_report = np.arange(len(denoised_signal), dtype=np.float64) / sr
+                    report_path = report_gen.generate_report(
+                        evidence_data=evidence_data,
+                        audio_properties=audio_properties,
+                        waveform_data=(w_times_report, denoised_signal),
+                        spectrogram_data=spectrogram_data,
+                        denoise_metrics=denoise_metrics,
+                        frequency_comparison=freq_comparison
+                    )
+
+                    with open(report_path, "rb") as pdf_file:
+                        st.session_state['report_pdf_bytes'] = pdf_file.read()
+                        st.session_state['report_pdf_name'] = os.path.basename(report_path)
+
+                    st.success("✅ PDF report compiled successfully!")
+                except Exception as e:
+                    st.error(f"Error generating PDF report: {str(e)}")
+
+        if 'report_pdf_bytes' in st.session_state and st.session_state.get('report_pdf_name'):
+            st.download_button(
+                label=f"⬇️ Download {st.session_state['report_pdf_name']}",
+                data=st.session_state['report_pdf_bytes'],
+                file_name=st.session_state['report_pdf_name'],
+                mime="application/pdf",
+                use_container_width=True
+            )
 
 
 if __name__ == "__main__":

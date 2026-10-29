@@ -158,10 +158,10 @@ class PDFReportGenerator:
         self,
         evidence_data: Dict[str, Any],
         audio_properties: Dict[str, Any],
-        metadata_results: Dict[str, Any],
         waveform_data: Tuple[np.ndarray, np.ndarray],
         spectrogram_data: Tuple[np.ndarray, np.ndarray, np.ndarray],
-        tampering_results: Dict[str, Any],
+        metadata_results: Optional[Dict[str, Any]] = None,
+        tampering_results: Optional[Dict[str, Any]] = None,
         filename: Optional[str] = None,
         denoise_metrics: Optional[Dict[str, Any]] = None,
         frequency_comparison: Optional[Dict[str, Any]] = None
@@ -255,11 +255,10 @@ class PDFReportGenerator:
         story.append(audio_table)
         story.append(Spacer(1, 20))
 
-        # Metadata
-        story.append(Paragraph("METADATA ANALYSIS", self.heading_style))
-
-        metadata = metadata_results.get('metadata', {})
-        if metadata:
+        # Metadata (optional if provided)
+        if metadata_results and metadata_results.get('metadata'):
+            story.append(Paragraph("METADATA ANALYSIS", self.heading_style))
+            metadata = metadata_results.get('metadata', {})
             metadata_table_data = [["Field", "Value"]]
             for key, value in metadata.items():
                 if key not in ['error']:  # Skip error field for cleaner display
@@ -278,20 +277,15 @@ class PDFReportGenerator:
                     ('GRID', (0, 0), (-1, -1), 1, colors.black)
                 ]))
                 story.append(metadata_table)
-            else:
-                story.append(Paragraph("No metadata found.", self.normal_style))
-        else:
-            story.append(Paragraph("No metadata available.", self.normal_style))
 
-        # Metadata anomalies
-        anomalies = metadata_results.get('anomalies', [])
-        if anomalies:
-            story.append(Spacer(1, 10))
-            story.append(Paragraph("METADATA ANOMALIES DETECTED:", self.warning_style))
-            for anomaly in anomalies:
-                anomaly_text = f"• {anomaly.get('description', 'Unknown anomaly')}"
-                story.append(Paragraph(anomaly_text, self.warning_style))
-        story.append(Spacer(1, 20))
+            anomalies = metadata_results.get('anomalies', [])
+            if anomalies:
+                story.append(Spacer(1, 10))
+                story.append(Paragraph("METADATA ANOMALIES DETECTED:", self.warning_style))
+                for anomaly in anomalies:
+                    anomaly_text = f"• {anomaly.get('description', 'Unknown anomaly')}"
+                    story.append(Paragraph(anomaly_text, self.warning_style))
+            story.append(Spacer(1, 20))
 
         # Waveform Image
         story.append(Paragraph("WAVEFORM VISUALIZATION", self.heading_style))
@@ -322,41 +316,41 @@ class PDFReportGenerator:
             story.append(Paragraph("Spectrogram visualization not available.", self.normal_style))
         story.append(Spacer(1, 20))
 
-        # Tampering Analysis Results
-        story.append(Paragraph("TAMPERING ANALYSIS RESULTS", self.heading_style))
+        # Tampering Analysis Results (only if tampering detection was executed)
+        if tampering_results and tampering_results.get('num_windows', 0) > 0:
+            story.append(Paragraph("TAMPERING ANALYSIS RESULTS", self.heading_style))
 
-        tampering_table_data = [
-            ["Metric", "Value"],
-            ["Number of Windows", str(tampering_results.get('num_windows', 0))],
-            ["Number of Suspicious Regions", str(len(tampering_results.get('suspicious_timestamps', [])))],
-            ["Maximum Anomaly Score", f"{tampering_results.get('max_anomaly_score', 0):.3f}"]
-        ]
+            tampering_table_data = [
+                ["Metric", "Value"],
+                ["Number of Windows", str(tampering_results.get('num_windows', 0))],
+                ["Number of Suspicious Regions", str(len(tampering_results.get('suspicious_timestamps', [])))],
+                ["Maximum Anomaly Score", f"{tampering_results.get('max_anomaly_score', 0):.3f}"]
+            ]
 
-        tampering_table = Table(tampering_table_data, colWidths=[3*inch, 3*inch])
-        tampering_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        story.append(tampering_table)
-        story.append(Spacer(1, 10))
+            tampering_table = Table(tampering_table_data, colWidths=[3*inch, 3*inch])
+            tampering_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(tampering_table)
+            story.append(Spacer(1, 10))
 
-        # Suspicious timestamps
-        suspicious_times = tampering_results.get('suspicious_timestamps', [])
-        if suspicious_times:
-            story.append(Paragraph("SUSPICIOUS TIMESTAMPS:", self.warning_style))
-            for i, timestamp in enumerate(suspicious_times[:10]):  # Limit to first 10
-                story.append(Paragraph(f"• Possible audio discontinuity detected at {timestamp:.2f} seconds.", self.warning_style))
-            if len(suspicious_times) > 10:
-                story.append(Paragraph(f"• ... and {len(suspicious_times) - 10} more suspicious regions.", self.warning_style))
-        else:
-            story.append(Paragraph("No significant signal discontinuities detected.", self.normal_style))
-        story.append(Spacer(1, 20))
+            suspicious_times = tampering_results.get('suspicious_timestamps', [])
+            if suspicious_times:
+                story.append(Paragraph("SUSPICIOUS TIMESTAMPS:", self.warning_style))
+                for i, timestamp in enumerate(suspicious_times[:10]):  # Limit to first 10
+                    story.append(Paragraph(f"• Possible audio discontinuity detected at {timestamp:.2f} seconds.", self.warning_style))
+                if len(suspicious_times) > 10:
+                    story.append(Paragraph(f"• ... and {len(suspicious_times) - 10} more suspicious regions.", self.warning_style))
+            else:
+                story.append(Paragraph("No significant signal discontinuities detected.", self.normal_style))
+            story.append(Spacer(1, 20))
 
         # Audio Enhancement & Frequency Analysis Section (if available)
         if denoise_metrics or frequency_comparison:
@@ -443,7 +437,17 @@ class PDFReportGenerator:
         # Overall Assessment
         story.append(Paragraph("OVERALL ASSESSMENT", self.heading_style))
 
-        if suspicious_times:
+        suspicious_times = (tampering_results or {}).get('suspicious_timestamps', [])
+
+        if denoise_metrics and denoise_metrics.get('noise_reduction_db', 0) > 0:
+            red_db = denoise_metrics.get('noise_reduction_db', 0.0)
+            snr_gain = denoise_metrics.get('estimated_snr_gain_db', 0.0)
+            assessment_text = (
+                f"Audio noise reduction and frequency analysis completed successfully. "
+                f"Achieved {red_db:.2f} dB noise reduction with an estimated SNR improvement of {snr_gain:.2f} dB. "
+                f"Acoustic properties, spectral envelope, and waveform dynamics have been analyzed and documented."
+            )
+        elif suspicious_times:
             assessment_text = (
                 "Potential anomaly detected. Further forensic examination is recommended. "
                 "The detection of signal discontinuities suggests possible editing or tampering, "
@@ -451,9 +455,8 @@ class PDFReportGenerator:
             )
         else:
             assessment_text = (
-                "No significant signal discontinuities were detected by this analysis. "
-                "This does not guarantee the authenticity of the audio, as sophisticated "
-                "manipulation may not produce detectable discontinuities with this method."
+                "Audio signal processed and analyzed. Technical parameters, acoustic properties, and "
+                "waveform metrics have been documented in this report."
             )
 
         story.append(Paragraph(assessment_text, self.normal_style))
