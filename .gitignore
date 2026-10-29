@@ -1,4 +1,4 @@
-# Python
+# Python & Bytecode
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,13 +20,16 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Testing & Linting
 .pytest_cache/
 .coverage
+htmlcov/
 .mypy_cache/
 .ruff_cache/
-.log
+*.log
 
-# Virtual Environment
+# Virtual Environments
 .env
 .venv
 env/
@@ -35,21 +38,44 @@ ENV/
 env.bak/
 venv.bak/
 
-# IDE
+# IDE & Editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
-# OS
+# OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Project specific
+# Streamlit
+.streamlit/
+
+# Generated reports & temporary artifacts
 reports/
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Audio samples & media files (prevent large binary uploads)
+archive/
 *.wav
 *.mp3
 *.flac
 *.ogg
 *.m4a
+*.webm
+*.opus
+*.aac
+*.wma
+*.aiff
+*.alac

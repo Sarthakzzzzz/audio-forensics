@@ -12,6 +12,8 @@ from forensic.spectrogram import create_spectrogram_analyzer
 from forensic.features import create_feature_extractor
 from forensic.tampering import create_tampering_detector
 from forensic.report import create_report_generator
+from forensic.denoise import create_denoiser
+from forensic.frequency import create_frequency_analyzer
 
 
 def create_demo_audio_file(filename, duration=3.0, sample_rate=8000):
@@ -132,8 +134,29 @@ def main():
             print(f"   First suspicious timestamp: {tampering_results['suspicious_timestamps'][0]:.2f} seconds")
         print(f"   Max anomaly score: {tampering_results.get('max_anomaly_score', 0):.3f}")
 
-        # Test 7: Report generation
-        print("\n7️⃣  REPORT GENERATION")
+        # Test 7: Audio Denoising
+        print("\n7️⃣  AUDIO NOISE REDUCTION")
+        denoiser = create_denoiser(signal, sample_rate)
+        denoised_signal = denoiser.reduce_noise(prop_decrease=0.85, stationary=True)
+        denoise_metrics = denoiser.calculate_denoising_metrics()
+        print(f"   Noise reduction: {denoise_metrics['noise_reduction_db']:.2f} dB")
+        print(f"   Estimated SNR gain: {denoise_metrics['estimated_snr_gain_db']:.2f} dB")
+        print(f"   Original RMS: {denoise_metrics['rms_original']:.4f} -> Denoised RMS: {denoise_metrics['rms_denoised']:.4f}")
+
+        # Test 8: Previous vs Current Frequency Change Analysis
+        print("\n8️⃣  PREVIOUS VS CURRENT FREQUENCY CHANGE ANALYSIS")
+        freq_analyzer = create_frequency_analyzer(sample_rate)
+        freq_comp = freq_analyzer.compare_previous_and_current(signal, denoised_signal, jump_threshold_hz=150.0)
+        f_metrics = freq_comp['metrics']
+        print(f"   Previous Mean Centroid: {f_metrics['previous_mean_centroid_hz']} Hz")
+        print(f"   Current Mean Centroid:  {f_metrics['current_mean_centroid_hz']} Hz (Change: {f_metrics['centroid_change_pct']:+.1f}%)")
+        print(f"   High Freq Attenuation:  {f_metrics['high_freq_attenuation_db']:.1f} dB")
+        print(f"   Detected Frequency Jumps: {len(freq_comp['detected_frequency_jumps'])}")
+        for jump in freq_comp['detected_frequency_jumps'][:3]:
+            print(f"     • At {jump['timestamp']:.2f}s: {jump['previous_frequency_hz']} Hz -> {jump['current_frequency_hz']} Hz (Δ={jump['frequency_change_hz']} Hz, {jump['direction']})")
+
+        # Test 9: Report generation
+        print("\n9️⃣  REPORT GENERATION")
         report_generator = create_report_generator()
 
         # Get waveform data for display
@@ -159,7 +182,9 @@ def main():
             metadata_results=metadata_results,
             waveform_data=(waveform_times, waveform_signal),
             spectrogram_data=(spectrogram, frequencies, times),
-            tampering_results=report_tampering_results
+            tampering_results=report_tampering_results,
+            denoise_metrics=denoise_metrics,
+            frequency_comparison=freq_comp
         )
 
         # Check that report was created

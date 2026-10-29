@@ -5,7 +5,7 @@ Creates forensic reports in PDF format.
 
 import os
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
@@ -162,7 +162,9 @@ class PDFReportGenerator:
         waveform_data: Tuple[np.ndarray, np.ndarray],
         spectrogram_data: Tuple[np.ndarray, np.ndarray, np.ndarray],
         tampering_results: Dict[str, Any],
-        filename: Optional[str] = None
+        filename: Optional[str] = None,
+        denoise_metrics: Optional[Dict[str, Any]] = None,
+        frequency_comparison: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Generate PDF forensic report.
@@ -355,6 +357,88 @@ class PDFReportGenerator:
         else:
             story.append(Paragraph("No significant signal discontinuities detected.", self.normal_style))
         story.append(Spacer(1, 20))
+
+        # Audio Enhancement & Frequency Analysis Section (if available)
+        if denoise_metrics or frequency_comparison:
+            story.append(Paragraph("NOISE REDUCTION & FREQUENCY ANALYSIS", self.heading_style))
+
+            if denoise_metrics:
+                enhancement_data = [
+                    ["Denoising Metric", "Value"],
+                    ["Noise Reduction (dB)", f"{denoise_metrics.get('noise_reduction_db', 0.0):.2f} dB"],
+                    ["Estimated SNR Gain", f"{denoise_metrics.get('estimated_snr_gain_db', 0.0):.2f} dB"],
+                    ["Original RMS", f"{denoise_metrics.get('rms_original', 0.0):.4f}"],
+                    ["Denoised RMS", f"{denoise_metrics.get('rms_denoised', 0.0):.4f}"],
+                    ["Removed Noise RMS", f"{denoise_metrics.get('rms_noise_removed', 0.0):.4f}"]
+                ]
+                enh_table = Table(enhancement_data, colWidths=[3*inch, 3*inch])
+                enh_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 11),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                story.append(enh_table)
+                story.append(Spacer(1, 15))
+
+            if frequency_comparison and "metrics" in frequency_comparison:
+                f_metrics = frequency_comparison["metrics"]
+                freq_data = [
+                    ["Frequency Metric", "Previous (Original)", "Current (Denoised)", "Change"],
+                    [
+                        "Spectral Centroid",
+                        f"{f_metrics.get('previous_mean_centroid_hz', 0.0)} Hz",
+                        f"{f_metrics.get('current_mean_centroid_hz', 0.0)} Hz",
+                        f"{f_metrics.get('centroid_change_pct', 0.0):+.1f}%"
+                    ],
+                    [
+                        "Spectral Rolloff (85%)",
+                        f"{f_metrics.get('previous_mean_rolloff_hz', 0.0)} Hz",
+                        f"{f_metrics.get('current_mean_rolloff_hz', 0.0)} Hz",
+                        f"{f_metrics.get('rolloff_change_pct', 0.0):+.1f}%"
+                    ],
+                    [
+                        "Spectral Flatness",
+                        f"{f_metrics.get('previous_flatness', 0.0):.5f}",
+                        f"{f_metrics.get('current_flatness', 0.0):.5f}",
+                        "Tonal improvement" if f_metrics.get('current_flatness', 0) < f_metrics.get('previous_flatness', 0) else "N/A"
+                    ],
+                    [
+                        "High Freq Attenuation",
+                        "-",
+                        f"{f_metrics.get('high_freq_attenuation_db', 0.0):.1f} dB",
+                        "Noise suppressed"
+                    ]
+                ]
+                freq_table = Table(freq_data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 1*inch])
+                freq_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                story.append(freq_table)
+                story.append(Spacer(1, 15))
+
+            # Detected frequency jumps
+            jumps = frequency_comparison.get("detected_frequency_jumps", []) if frequency_comparison else []
+            if jumps:
+                story.append(Paragraph("DETECTED FREQUENCY TRANSITIONS / JUMPS:", self.warning_style))
+                for jump in jumps[:5]:
+                    story.append(Paragraph(
+                        f"• At {jump['timestamp']:.2f}s: frequency changed from {jump['previous_frequency_hz']} Hz to "
+                        f"{jump['current_frequency_hz']} Hz (Δ = {jump['frequency_change_hz']} Hz, {jump['direction']})",
+                        self.normal_style
+                    ))
+                story.append(Spacer(1, 15))
 
         # Overall Assessment
         story.append(Paragraph("OVERALL ASSESSMENT", self.heading_style))

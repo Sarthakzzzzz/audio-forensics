@@ -15,6 +15,8 @@ from .spectrogram import create_spectrogram_analyzer, SpectrogramAnalyzer
 from .features import create_feature_extractor, FeatureExtractor
 from .tampering import create_tampering_detector, TamperingDetector
 from .report import create_report_generator, PDFReportGenerator
+from .denoise import create_denoiser, AudioDenoiser
+from .frequency import create_frequency_analyzer, FrequencyAnalyzer
 
 # Define what gets imported with "from forensic import *"
 __all__ = [
@@ -31,5 +33,9 @@ __all__ = [
     "create_tampering_detector",
     "TamperingDetector",
     "create_report_generator",
-    "PDFReportGenerator"
+    "PDFReportGenerator",
+    "create_denoiser",
+    "AudioDenoiser",
+    "create_frequency_analyzer",
+    "FrequencyAnalyzer"
 ]

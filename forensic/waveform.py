@@ -9,6 +9,12 @@ import librosa
 from typing import Tuple, Optional
 import logging
 
+try:
+    import av
+    AV_AVAILABLE = True
+except ImportError:
+    AV_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +35,7 @@ class WaveformAnalyzer:
         self._load_audio()
 
     def _load_audio(self) -> None:
-        """Load audio file using soundfile with librosa fallback."""
+        """Load audio file using soundfile with librosa and PyAV fallbacks."""
         try:
             # Try soundfile first
             self.signal, self.sample_rate = sf.read(self.file_path)
@@ -46,12 +52,56 @@ class WaveformAnalyzer:
                     self.file_path, sr=None, mono=True
                 )
             except Exception as e2:
-                logger.error(f"Librosa also failed to load {self.file_path}: {e2}")
-                raise ValueError(f"Could not load audio file: {self.file_path}")
+                logger.warning(f"Librosa also failed to load {self.file_path}: {e2}")
+                # Fallback to PyAV for WebM, Opus, and container formats
+                if AV_AVAILABLE:
+                    try:
+                        self.signal, self.sample_rate = self._load_with_av(self.file_path)
+                    except Exception as e3:
+                        logger.error(f"PyAV failed to load {self.file_path}: {e3}")
+                        raise ValueError(f"Could not load audio file: {self.file_path}")
+                else:
+                    raise ValueError(f"Could not load audio file: {self.file_path}")
 
         # Calculate duration
         if self.signal is not None and self.sample_rate is not None:
             self.duration = len(self.signal) / self.sample_rate
+
+    def _load_with_av(self, file_path: str) -> Tuple[np.ndarray, int]:
+        """Load audio file using PyAV (supports WebM, Opus, etc.)."""
+        container = av.open(file_path)
+        audio_streams = container.streams.audio
+        if not audio_streams:
+            raise ValueError(f"No audio stream found in {file_path}")
+
+        stream = audio_streams[0]
+        sample_rate = stream.sample_rate
+
+        frames = []
+        for frame in container.decode(stream):
+            frames.append(frame.to_ndarray())
+
+        if not frames:
+            raise ValueError(f"Audio stream contained no frames in {file_path}")
+
+        # Concatenate frames along time axis (axis 1: shape is (channels, samples))
+        audio = np.concatenate(frames, axis=1)
+
+        # Convert to float32 normalized between -1.0 and 1.0 if integer dtype
+        if np.issubdtype(audio.dtype, np.integer):
+            max_val = np.iinfo(audio.dtype).max
+            audio = audio.astype(np.float32) / max_val
+        else:
+            audio = audio.astype(np.float32)
+
+        # Downmix multi-channel to mono
+        if audio.ndim > 1:
+            if audio.shape[0] > 1:
+                audio = np.mean(audio, axis=0)
+            else:
+                audio = audio[0]
+
+        return audio, sample_rate
 
     def get_waveform_data(self, downsample_factor: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
         """

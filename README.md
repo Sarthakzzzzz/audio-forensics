@@ -38,7 +38,7 @@ The Audio Forensic Analyzer is a college-level mini-project designed for prelimi
 - Unique Evidence ID generation
 - Immediate SHA-256 hash calculation for integrity verification
 - File information capture (size, MIME type, timestamps)
-- Support for WAV, MP3, FLAC, OGG, M4A formats
+- Support for WAV, MP3, FLAC, OGG, M4A, WEBM, OPUS formats
 
 ### 2. Metadata Analysis
 - Extraction of technical and textual metadata using Mutagen
@@ -77,20 +77,45 @@ The Audio Forensic Analyzer is a college-level mini-project designed for prelimi
 - Output includes suspicious timestamps, anomaly scores, and feature changes
 - Clear distinction between "suspicious" and "proven manipulation"
 
-### 7. Forensic Findings Dashboard
+### 7. Audio Noise Reduction & Enhancement
+- Spectral gating noise reduction using `noisereduce` with scipy fallback
+- Stationary noise removal (constant background hum, HVAC noise, mic hiss)
+- Non-stationary noise removal (varying environmental noise)
+- Configurable audio pre-filtering:
+  - Bandpass filter (isolating human speech: 80 Hz – 4,000 Hz)
+  - Highpass filter (eliminating sub-bass rumble < 80 Hz)
+  - Lowpass filter (eliminating high-frequency hiss < 4,000 Hz)
+  - 50 Hz & 60 Hz Notch filters (eliminating electrical mains hum)
+- Dual audio players for direct in-browser listening (Previous/Original vs Current/Denoised)
+- One-click export and download of cleaned audio as 16-bit PCM WAV
+
+### 8. Frequency Change Analysis (Previous vs Current)
+- **Power Spectral Density (PSD) Comparison**:
+  - Overlaid Previous (Original) vs Current (Denoised) frequency spectrum in dB
+  - Exact frequency attenuation / noise reduction curve across 0 Hz to Nyquist frequency
+- **Temporal Frequency Tracking (Over Time)**:
+  - Frame-by-frame tracking of Spectral Centroid (Hz) before vs after denoising
+  - Instantaneous dominant peak frequency trajectory
+- **Frequency Jump / Discontinuity Detection**:
+  - Frame-to-frame frequency step change rate ($|\Delta f|$)
+  - Detection of sharp frequency shifts (e.g. splice points, pitch edits, tone modifications) with exact timestamps and directional shift
+- **Comparative Spectrogram**:
+  - 3-panel synchronized display: Previous Spectrogram, Current Spectrogram, and Removed Frequency/Noise Map ($S_{\text{orig}} - S_{\text{denoised}}$)
+
+### 9. Forensic Findings Dashboard
 - Evidence integrity verification display
 - Metadata findings presentation
 - Signal analysis confirmation
 - Suspicious regions enumeration
 - Overall assessment with appropriate uncertainty language
 
-### 8. PDF Forensic Report Generation
+### 10. PDF Forensic Report Generation
 - Comprehensive report with all analysis results
 - Embedded waveform and spectrogram images
-- Methodology documentation
-- Forensic disclaimer inclusion
-- SHA-256 hash and evidence tracking
-- Professional formatting suitable for documentation
+- Quantitative noise reduction metrics (dB reduction, SNR improvement)
+- Frequency comparison summary (centroid shift %, rolloff change %, high-frequency attenuation)
+- Detected frequency jump log
+- Methodology documentation & forensic disclaimer
 
 ## Architecture
 
@@ -110,6 +135,8 @@ audio-forensics/
 │   ├── spectrogram.py        # STFT and spectrogram generation
 │   ├── features.py           # Audio feature extraction (MFCC, RMS, etc.)
 │   ├── tampering.py          # Anomaly detection and tampering analysis
+│   ├── denoise.py            # Audio noise reduction, filtering, & export
+│   ├── frequency.py          # Frequency comparison & jump tracking
 │   └── report.py             # PDF report generation
 │
 ├── reports/                  # Generated PDF reports directory
@@ -118,7 +145,10 @@ audio-forensics/
     ├── test_evidence.py
     ├── test_metadata.py
     ├── test_features.py
-    └── test_tampering.py
+    ├── test_tampering.py
+    ├── test_denoise.py
+    ├── test_frequency.py
+    └── test_integration.py
 ```
 
 ### Module Responsibilities

@@ -12,6 +12,12 @@ from mutagen.oggvorbis import OggVorbis
 from mutagen.wave import WAVE
 import logging
 
+try:
+    import av
+    AV_AVAILABLE = True
+except ImportError:
+    AV_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,6 +41,10 @@ class MetadataAnalyzer:
         try:
             audio_file = mutagen.File(self.file_path)
             if audio_file is None:
+                if AV_AVAILABLE:
+                    av_meta = self._extract_av_metadata()
+                    if av_meta:
+                        return av_meta
                 logger.warning(f"Could not read metadata from {self.file_path}")
                 return metadata
 
@@ -161,6 +171,38 @@ class MetadataAnalyzer:
             for key, value in audio_file.tags.items():
                 metadata[key.lower()] = str(value)
 
+        return metadata
+
+    def _extract_av_metadata(self) -> Dict[str, Any]:
+        """Extract metadata using PyAV for formats like WebM and Opus."""
+        metadata = {}
+        try:
+            container = av.open(self.file_path)
+            metadata['format'] = container.format.name
+            audio_streams = container.streams.audio
+            if audio_streams:
+                stream = audio_streams[0]
+                metadata['sample_rate'] = stream.sample_rate
+                metadata['channels'] = stream.channels
+                if hasattr(stream.codec_context, 'name') and stream.codec_context.name:
+                    metadata['codec'] = stream.codec_context.name
+
+                # Duration
+                if container.duration:
+                    metadata['duration'] = float(container.duration) / av.time_base
+                elif stream.duration and stream.time_base:
+                    metadata['duration'] = float(stream.duration * stream.time_base)
+
+                if container.bit_rate and container.bit_rate > 0:
+                    metadata['bitrate'] = container.bit_rate
+                elif stream.bit_rate and stream.bit_rate > 0:
+                    metadata['bitrate'] = stream.bit_rate
+
+            # Container metadata tags
+            for key, value in container.metadata.items():
+                metadata[key.lower()] = str(value)
+        except Exception as e:
+            logger.error(f"PyAV metadata extraction error: {e}")
         return metadata
 
     def _extract_generic_metadata(self, audio_file) -> Dict[str, Any]:
