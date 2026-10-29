@@ -1,4 +1,5 @@
 # Python & Bytecode
+.gitignore
 __pycache__/
 *.py[cod]
 *$py.class
@@ -68,7 +69,6 @@ temp/
 
 # Audio samples & media files (prevent large binary uploads)
 archive/
-*.wav
 *.mp3
 *.flac
 *.ogg

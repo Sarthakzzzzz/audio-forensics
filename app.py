@@ -617,10 +617,12 @@ def display_analysis_results(
                         audio_properties=audio_properties,
                         waveform_data=(w_times_report, denoised_signal),
                         spectrogram_data=spectrogram_data,
-                        metadata_results={},
+                        metadata_results=metadata_results if 'metadata_results' in locals() else {},
                         tampering_results={},
                         denoise_metrics=denoise_metrics,
-                        frequency_comparison=freq_comparison
+                        frequency_comparison=freq_comparison,
+                        denoised_spectrogram_db=denoised_spectrogram_db,
+                        jump_threshold_hz=jump_threshold_hz
                     )
 
                     with open(report_path, "rb") as pdf_file:
